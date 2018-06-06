@@ -1,0 +1,123 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+require(tidyverse)
+require(openxlsx)
+require(forecast)
+
+```
+
+# 2.6: 
+```{r}
+df = read.xlsx("arma.xlsx")
+df = df %>%
+        mutate(row_number = row_number())
+
+df
+```
+```{r}
+ggplot(df, aes(x = row_number)) + 
+        geom_line(aes(y = y1), color = "blue") + 
+        geom_line(aes(y = y2), color = "red") + 
+        geom_line(aes(y = y3), color = "green")
+
+```
+```{r}
+target = "y3"
+
+data = df[target]
+
+```
+
+
+```{r}
+acf(data, lag.max = 20)
+
+```
+
+```{r}
+pacf(data, lag.max = 20)
+```
+
+
+```{r}
+# ar2
+fit = Arima(data, order = c(2,0,2))
+fit
+acf(fit$residuals)
+```
+
+```{r}
+# as a for loop
+l = list()
+k = 1
+for(i in 0:5){
+        for(j in 0:5){
+                fit = Arima(data, order = c(i,0,j)) # y1
+                d = c(i, fit$aic, fit$bic, fit$arma[1], fit$arma[2])
+                l[[k]] = d
+                k = k + 1
+        }
+}
+result = data.frame(matrix(unlist(l), ncol = length(d), byrow = T))
+colnames(result) = c("i", "aic", "bic", "ar", "mr")
+result
+```
+
+```{r}
+aic.argmin = which.min(result$aic)
+bic.argmin = which.min(result$bic)
+paste0("best aic is " ,as.character(aic.argmin), 
+       ", ar: ", as.character(result[aic.argmin,"ar"]), ", mr: ", as.character(result[aic.argmin,"mr"]))
+paste0("best bic is " ,as.character(bic.argmin), 
+       ", ar: ", as.character(result[bic.argmin,"ar"]), ", mr: ", as.character(result[bic.argmin,"mr"]))
+```
+
+```{r}
+
+result[aic.argmin,"ar"]
+result[aic.argmin,"mr"]
+```
+
+
+- so the final result is either ar(2):better at aic, or arma(2,1): better at bic
+
+```{r}
+aic.model = Arima(data, order = c(result[aic.argmin,"ar"],0,result[aic.argmin,"mr"]))
+resid = aic.model$residuals
+acf(resid)
+
+# kaban
+
+
+l = list()
+for(i in 1:10){
+        test = Box.test(aic.model$residuals,i, type = "L")
+        d = c(i, test$p.value)
+        l[[i]] = d
+}
+data.frame(matrix(unlist(l), ncol = 2, byrow = T))
+
+```
+
+```{r}
+
+bic.model = Arima(data, order = c(result[bic.argmin,"ar"],0,result[bic.argmin,"mr"]))
+resid = bic.model$residuals
+acf(resid)
+
+# kaban
+
+
+l = list()
+for(i in 1:10){
+        test = Box.test(bic.model$residuals,i, type = "L")
+        d = c(i, test$p.value)
+        l[[i]] = d
+}
+data.frame(matrix(unlist(l), ncol = 2, byrow = T))
+```
+

@@ -1,0 +1,207 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+require(tidyverse)
+require(openxlsx)
+require(forecast)
+
+```
+
+```{r}
+
+df = read.xlsx("economicdata.xlsx")
+df$date = as.Date(df$date, origin = "1899-12-30")
+df
+
+```
+
+```{r}
+
+df_lag = df %>%
+        select(date, topix, exrate, indprod) %>%
+        mutate(topix = log10(topix), exrate = log10(exrate), indprod = log10(indprod)) %>%
+        mutate(topix = topix - lag(topix), exrate = exrate - lag(exrate), indprod = indprod-lag(indprod)) %>%
+        na.omit()
+acf(df_lag$indprod, lag.max = 20)
+
+```
+
+```{r}
+?acf
+pacf(df_lag$indprod, lag.max = 20)
+
+
+```
+
+# ar4
+```{r}
+ar.4 = Arima(df_lag$indprod, order = c(4,0,0))
+ar.4
+
+acf(ar.4$resid, na.action = na.pass)
+```
+
+# Kaban -kentei
+```{r}
+
+l = list()
+for(i in 1:10){
+        test = Box.test(ar.4$residuals,i, type = "L")
+        d = c(i, test$p.value)
+        l[[i]] = d
+}
+data.frame(matrix(unlist(l), ncol = 2, byrow = T))
+
+```
+
+# ma3
+```{r}
+ma.3 = auto.arima(df_lag$indprod, max.p = 0, stationary = TRUE, seasonal = F)
+ma.3$aic
+acf(ma.3$residuals, na.action = na.pass)
+
+ma.3
+```
+
+```{r}
+arma.1.1 = Arima(df_lag$indprod, order = c(1,0,1))
+arma.1.1
+acf(arma.1.1$residuals)
+```
+
+```{r}
+arma.2.1 = Arima(df_lag$indprod, order = c(2,0,1))
+arma.2.1
+acf(arma.2.1$residuals)
+```
+
+```{r}
+
+arma.1.2 = Arima(df_lag$indprod, order = c(1,0,2))
+arma.1.2
+acf(arma.1.2$residuals)
+```
+
+# Kaban -kentei
+```{r}
+
+l = list()
+for(i in 1:10){
+        test = Box.test(arma.1.2$residuals,i, type = "L")
+        d = c(i, test$p.value)
+        l[[i]] = d
+}
+data.frame(matrix(unlist(l), ncol = 2, byrow = T))
+
+```
+
+```{r}
+l = list()
+
+
+```
+
+
+
+```{r}
+arma.2.2 = Arima(df_lag$indprod, order = c(2,0,2))
+arma.2.2$aic
+acf(arma.2.2$residuals)
+```
+
+
+
+```{r}
+Box.test(df_lag$indprod, lag = 2, type = "L")
+```
+
+
+# 2.6: 
+```{r}
+df = read.xlsx("arma.xlsx")
+df = df %>%
+        mutate(row_number = row_number())
+
+df
+```
+```{r}
+ggplot(df, aes(x = row_number)) + 
+        geom_line(aes(y = y1), color = "blue") + 
+        geom_line(aes(y = y2), color = "red") + 
+        geom_line(aes(y = y3), color = "green")
+
+```
+
+
+```{r}
+acf(df$y1, lag.max = 20)
+
+```
+
+```{r}
+pacf(df$y1, lag.max = 20)
+```
+
+
+```{r}
+# ar2
+fit = Arima(df$y1, order = c(2,0,0))
+fit
+acf(fit$residuals)
+```
+
+```{r}
+# as a for loop
+l = list()
+for(i in 0:9){
+        fit = Arima(df$y1, order = c(2,0,i))
+        d = c(i, fit$aic, fit$bic)
+        l[[i+1]] = d
+}
+d = data.frame(matrix(unlist(l), ncol = 3, byrow = T))
+colnames(d) = c("i", "aic", "bic")
+d
+
+```
+
+- so the final result is either ar(2):better at aic, or arma(2,1): better at bic
+
+```{r}
+aic.model = Arima(df$y1, order = c(2,0,1))
+resid = aic.model$residuals
+acf(resid)
+
+# kaban
+
+
+l = list()
+for(i in 1:10){
+        test = Box.test(aic.model$residuals,i, type = "L")
+        d = c(i, test$p.value)
+        l[[i]] = d
+}
+data.frame(matrix(unlist(l), ncol = 2, byrow = T))
+
+```
+
+```{r}
+
+bic.model = Arima(df$y1, order = c(2,0,0))
+resid = bic.model$residuals
+acf(resid)
+
+# kaban
+
+
+l = list()
+for(i in 1:10){
+        test = Box.test(bic.model$residuals,i, type = "L")
+        d = c(i, test$p.value)
+        l[[i]] = d
+}
+data.frame(matrix(unlist(l), ncol = 2, byrow = T))
+```
+

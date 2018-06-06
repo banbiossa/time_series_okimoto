@@ -1,0 +1,63 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+require(tidyverse)
+require(openxlsx)
+```
+
+```{r}
+df = read.xlsx("economicdata.xlsx")
+df$date = as.Date(df$date, origin = "1899-12-30")
+df
+```
+
+
+```{r}
+ggplot(df, aes(x = date)) + 
+        geom_line(aes(y = topix))
+
+```
+
+```{r}
+df_gather = df %>%
+        gather(key = key, value = value, -date)
+
+ggplot(df_gather, aes(x = date)) +
+        geom_line(aes(y = value)) + 
+        facet_wrap(~key, ncol = 2, scales = "free_y")
+
+```
+
+
+```{r}
+dates = df %>% select(date)
+df_lag = df %>%
+        select(date, topix, exrate, indprod) %>%
+        mutate(topix = log10(topix), exrate = log10(exrate), indprod = log10(indprod)) %>%
+        mutate(topix = topix - lag(topix), exrate = exrate - lag(exrate), indprod = indprod-lag(indprod)) %>%
+        na.omit()
+df_lag
+
+df_lag_gather = df_lag %>%
+        gather(key = key, value = value, -date)
+
+ggplot(df_lag_gather, aes(x = date)) + 
+        geom_line(aes(y = value)) + 
+        facet_wrap(~key, scales = "free_y", ncol = 1)
+```
+
+```{r}
+acf(df_lag$indprod, lag.max = 20)
+```
+
+```{r}
+acf(df_lag$topix, lag.max = 20)
+```
+
+```{r}
+acf(df_lag$exrate, lag.max = 20)
+```
+
